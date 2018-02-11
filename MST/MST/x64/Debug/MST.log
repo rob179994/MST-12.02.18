@@ -1,5 +1,33 @@
 ﻿  MST.cpp
 c:\users\rob mccormack\documents\uni\level 4\diss\open cv\opencv\build\include\opencv2\flann\logger.h(66): warning C4996: 'fopen': This function or variable may be unsafe. Consider using fopen_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details.
   c:\program files (x86)\windows kits\10\include\10.0.15063.0\ucrt\stdio.h(207): note: see declaration of 'fopen'
+c:\users\rob mccormack\documents\visual studio 2017\projects\mst\mst\mst.h(57): warning C4244: '=': conversion from 'double' to 'float', possible loss of data
+c:\users\rob mccormack\documents\visual studio 2017\projects\mst\mst\mst.h(71): warning C4244: '=': conversion from 'double' to 'float', possible loss of data
+c:\users\rob mccormack\documents\visual studio 2017\projects\mst\mst\mst.h(88): warning C4244: '=': conversion from 'double' to 'float', possible loss of data
+c:\users\rob mccormack\documents\visual studio 2017\projects\mst\mst\mst.h(202): warning C4267: 'initializing': conversion from 'size_t' to 'int', possible loss of data
+c:\users\rob mccormack\documents\visual studio 2017\projects\mst\mst\mst.h(203): warning C4267: 'initializing': conversion from 'size_t' to 'int', possible loss of data
+c:\users\rob mccormack\documents\visual studio 2017\projects\mst\mst\mst.h(357): warning C4244: 'initializing': conversion from 'double' to 'float', possible loss of data
+c:\users\rob mccormack\documents\visual studio 2017\projects\mst\mst\mst.h(381): warning C4244: 'argument': conversion from 'double' to 'int', possible loss of data
+c:\users\rob mccormack\documents\visual studio 2017\projects\mst\mst\mst.h(384): warning C4244: '=': conversion from 'double' to 'int', possible loss of data
+c:\users\rob mccormack\documents\visual studio 2017\projects\mst\mst\mst.h(385): warning C4244: '=': conversion from 'double' to 'int', possible loss of data
+c:\users\rob mccormack\documents\visual studio 2017\projects\mst\mst\mst.h(408): warning C4244: '+=': conversion from 'double' to 'float', possible loss of data
+c:\users\rob mccormack\documents\visual studio 2017\projects\mst\mst\mst.h(520): warning C4267: 'argument': conversion from 'size_t' to 'int', possible loss of data
+c:\users\rob mccormack\documents\visual studio 2017\projects\mst\mst\mst.h(521): warning C4267: 'argument': conversion from 'size_t' to 'int', possible loss of data
+c:\users\rob mccormack\documents\visual studio 2017\projects\mst\mst\mst.h(548): warning C4267: 'argument': conversion from 'size_t' to 'int', possible loss of data
+c:\users\rob mccormack\documents\visual studio 2017\projects\mst\mst\mst.h(549): warning C4267: 'argument': conversion from 'size_t' to 'int', possible loss of data
+c:\users\rob mccormack\documents\visual studio 2017\projects\mst\mst\mst.h(564): warning C4267: 'argument': conversion from 'size_t' to 'int', possible loss of data
+c:\users\rob mccormack\documents\visual studio 2017\projects\mst\mst\mst.h(565): warning C4267: 'argument': conversion from 'size_t' to 'int', possible loss of data
+c:\users\rob mccormack\documents\visual studio 2017\projects\mst\mst\mst.h(588): warning C4267: 'argument': conversion from 'size_t' to 'int', possible loss of data
+c:\users\rob mccormack\documents\visual studio 2017\projects\mst\mst\mst.h(589): warning C4267: 'argument': conversion from 'size_t' to 'int', possible loss of data
+c:\users\rob mccormack\documents\visual studio 2017\projects\mst\mst\mst.h(617): warning C4267: 'argument': conversion from 'size_t' to 'int', possible loss of data
+c:\users\rob mccormack\documents\visual studio 2017\projects\mst\mst\mst.h(618): warning C4267: 'argument': conversion from 'size_t' to 'int', possible loss of data
+c:\users\rob mccormack\documents\visual studio 2017\projects\mst\mst\mst.h(649): warning C4267: 'argument': conversion from 'size_t' to 'int', possible loss of data
+c:\users\rob mccormack\documents\visual studio 2017\projects\mst\mst\mst.h(705): warning C4244: '=': conversion from 'double' to 'float', possible loss of data
+c:\users\rob mccormack\documents\visual studio 2017\projects\mst\mst\mst.h(712): warning C4244: '=': conversion from 'double' to 'float', possible loss of data
+c:\users\rob mccormack\documents\visual studio 2017\projects\mst\mst\mst.h(747): warning C4267: 'argument': conversion from 'size_t' to 'int', possible loss of data
+c:\users\rob mccormack\documents\visual studio 2017\projects\mst\mst\mst.h(766): warning C4244: 'argument': conversion from 'double' to 'int', possible loss of data
+c:\users\rob mccormack\documents\visual studio 2017\projects\mst\mst\mst.h(770): warning C4244: '=': conversion from 'double' to 'uchar', possible loss of data
+c:\users\rob mccormack\documents\visual studio 2017\projects\mst\mst\mst.h(820): warning C4267: 'argument': conversion from 'size_t' to 'int', possible loss of data
+c:\users\rob mccormack\documents\visual studio 2017\projects\mst\mst\mst.h(842): warning C4244: '=': conversion from 'double' to 'uchar', possible loss of data
   MST.vcxproj -> C:\Users\Rob McCormack\Documents\Visual Studio 2017\Projects\MST\x64\Debug\MST.exe
   MST.vcxproj -> C:\Users\Rob McCormack\Documents\Visual Studio 2017\Projects\MST\x64\Debug\MST.pdb (Partial PDB)

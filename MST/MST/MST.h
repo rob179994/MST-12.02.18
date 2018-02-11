@@ -2,11 +2,12 @@ using namespace std;
 
 #include <opencv2/opencv.hpp>
 #include <stdio.h>
-#include <cmath>
-#include <math.h> 
+//#include <cmath>
+//#include <math.h> 
+#include <time.h> 
 
-#include "TreeEdge.h" 
-#include "TreeNode.h"
+//#include "TreeEdge.h" 
+//#include "TreeNode.h"
 
 using namespace cv;
 
@@ -21,6 +22,7 @@ public:
 		int rank;
 		int index;
 		vector<int> children;
+		float weightToParent;
 		int xCoord;
 		int yCoord;
 
@@ -30,7 +32,17 @@ public:
 
 	};
 
-	void Union(vector<nodeStructure> &allNodes, int rootOne, int rootTwo, int nodeOne, int nodeTwo) {
+	struct TreeEdge {
+		int sourceNodeIndex;
+		int destinationNodeIndex;
+		double weight;
+
+		bool operator< (const TreeEdge &other) const {
+			return weight < other.weight;
+		}
+	};
+
+	void Union(vector<nodeStructure> &allNodes, int rootOne, int rootTwo, int nodeOne, int nodeTwo,double edgeWeight) {
 
 		// Attach smaller rank tree under root of high 
 		// rank tree (Union by Rank)
@@ -39,10 +51,10 @@ public:
 				reverseSubTree(allNodes,nodeOne, allNodes[allNodes[nodeOne].root].rank, nodeOne, nodeOne);
 				rootOne = nodeOne;
 			}
-
 			allNodes[rootOne].root = rootTwo;
 			setRootForChildren(allNodes,rootTwo,nodeOne);
 			allNodes[nodeOne].parent = nodeTwo;
+			allNodes[nodeOne].weightToParent = edgeWeight;
 			allNodes[nodeTwo].children.push_back(nodeOne);
 			setRankAbove(allNodes,nodeOne,allNodes[nodeOne].rank);
 		}
@@ -56,6 +68,7 @@ public:
 			allNodes[rootTwo].root = rootOne;
 			setRootForChildren(allNodes, rootOne, nodeTwo);
 			allNodes[nodeTwo].parent = nodeOne;
+			allNodes[nodeTwo].weightToParent = edgeWeight;
 			allNodes[nodeOne].children.push_back(nodeTwo);
 			setRankAbove(allNodes, nodeTwo, allNodes[nodeTwo].rank);
 		}
@@ -72,13 +85,11 @@ public:
 			allNodes[rootTwo].root = rootOne;
 			setRootForChildren(allNodes, rootOne, nodeTwo);
 			allNodes[nodeTwo].parent = nodeOne;
+			allNodes[nodeTwo].weightToParent = edgeWeight;
 			allNodes[nodeOne].children.push_back(nodeTwo);
 			allNodes[rootOne].rank++;
 			setRankAbove(allNodes, nodeTwo, allNodes[nodeTwo].rank);
 		}
-
-		setRankDueToChildren(allNodes,allNodes[nodeOne].root);
-
 	}
 
 	void setRootForChildren(vector<nodeStructure> &allNodes,int rootToSet, int nodeToChangeRootBelow) {
@@ -110,6 +121,7 @@ public:
 		}
 
 		allNodes[index].parent = parentToBe;
+		allNodes[index].weightToParent = allNodes[parentToBe].weightToParent;
 
 		if (index == root) {	// set all ranks and roots
 			setRankDueToChildren(allNodes,index);
@@ -173,27 +185,22 @@ public:
 			// the index for next iteration
 			TreeEdge smallestEdge = sortedEdges[i];
 
-			int rootOne = nodeMST[smallestEdge.getSourceNodeIndex()].root;
-			int rootTwo = nodeMST[smallestEdge.getDestinationNodeIndex()].root;
+			int rootOne = nodeMST[smallestEdge.sourceNodeIndex].root;
+			int rootTwo = nodeMST[smallestEdge.destinationNodeIndex].root;
 
 			if (rootOne != rootTwo) {
-				Union(nodeMST, rootOne, rootTwo, smallestEdge.getSourceNodeIndex(), smallestEdge.getDestinationNodeIndex());
+				Union(nodeMST, rootOne, rootTwo, smallestEdge.sourceNodeIndex, smallestEdge.destinationNodeIndex, smallestEdge.weight);
 				sidesPicked++;
 			}
-
 			i++;
 		}
-
 		return nodeMST;
 	}
 
-	vector<TreeEdge> shortestSidesOfImage(Mat &inputImage) {
-		int yPixels = inputImage.rows;
-		int xPixels = inputImage.cols;
 
-		// create 2D array for tree
-		vector<TreeNode> treeRows(xPixels);
-		vector<vector<TreeNode>> treeNodeMatrix(yPixels, treeRows);
+	vector<TreeEdge> shortestSidesOfImageFromVector2d(vector<vector<double>> &inputImage) {
+		int yPixels = inputImage.size();
+		int xPixels = inputImage[0].size();
 
 		// edge array, vertical and horizontal
 		// Note: need 1 less row/column in that dimension
@@ -203,114 +210,99 @@ public:
 		vector<vector<TreeEdge>> imageTreeHorizontalEdges(yPixels, imageTreeHorizontalEdgesRows);
 		vector<vector<TreeEdge>> imageTreeVerticalEdges(yPixels - 1, imageTreeVerticalEdgesRows);
 
-
 		// list of lowest weight edges
 		vector<TreeEdge> sortedEdges;
-		// list of all nodes
-		vector<TreeNode> allNodes;
+
 
 		int nodeNumber = 0;
 		for (int j = 0; j < yPixels; j++) {	// iterate rows
 			for (int i = 0; i < xPixels; i++) {	//iterate columns
-				TreeNode *thisNode = new TreeNode(i, j);
-				TreeEdge *eastEdge = new TreeEdge(i, j);
-				TreeEdge *southEdge = new TreeEdge(i, j);
 
-				eastEdge->setSourceNodeIndex(nodeNumber);
-				southEdge->setSourceNodeIndex(nodeNumber);
-
-				if (i<xPixels - 1) {
-					imageTreeHorizontalEdges[j][i] = *eastEdge;
-				}
-				if (j < yPixels - 1) {
-					imageTreeVerticalEdges[j][i] = *southEdge;
-				}
-
-				// get pixel intensity at pixel
-				Scalar pixel1Intensity = inputImage.at<uchar>(j, i);
+												// get pixel intensity at pixel
+				double pixel1Intensity = inputImage[j][i];
 
 				// set weight of westEdge
 				if (i>0) {
 					// get pixel intensity of one to left
-					Scalar pixel2Intensity = inputImage.at<uchar>(j, i - 1);
+					double pixel2Intensity = inputImage[j][i - 1];
 					// as defined in MST Yang 2015 paper
-					double difference = *pixel1Intensity.val - *pixel2Intensity.val;
-					double intensityDifference = pow((*pixel1Intensity.val - *pixel2Intensity.val), 2.0);
+					double intensityDifference = (pixel1Intensity - pixel2Intensity)*(pixel1Intensity - pixel2Intensity);
 					// set weight and add to edge list
-					imageTreeHorizontalEdges[j][i - 1].setWeight(intensityDifference);
-					// set that the edge is horizontal
-					imageTreeHorizontalEdges[j][i - 1].setIsHorizontal(true);
+					imageTreeHorizontalEdges[j][i - 1].weight = intensityDifference;
 					// set the nodedestination
-					imageTreeHorizontalEdges[j][i - 1].setDestinationNodeIndex(nodeNumber);
+					imageTreeHorizontalEdges[j][i - 1].destinationNodeIndex = nodeNumber;
+					imageTreeHorizontalEdges[j][i - 1].sourceNodeIndex = nodeNumber - 1;
 
+					// add to edge list
 					sortedEdges.push_back(imageTreeHorizontalEdges[j][i - 1]);
 				}
 
 
 				// same for northEdge
 				if (j>0) {
-					Scalar pixel2Intensity = inputImage.at<uchar>(j - 1, i);
-					double intensityDifference = pow((*pixel1Intensity.val - *pixel2Intensity.val), 2.0);
-					imageTreeVerticalEdges[j - 1][i].setWeight(intensityDifference);
-					imageTreeVerticalEdges[j - 1][i].setIsHorizontal(false);
-					imageTreeVerticalEdges[j - 1][i].setDestinationNodeIndex(nodeNumber);
-
+					double pixel2Intensity = inputImage[j - 1][i];
+					double intensityDifference = (pixel1Intensity - pixel2Intensity)*(pixel1Intensity - pixel2Intensity);
+					imageTreeVerticalEdges[j - 1][i].weight = intensityDifference;
+					imageTreeVerticalEdges[j - 1][i].destinationNodeIndex = nodeNumber;
+					imageTreeVerticalEdges[j - 1][i].sourceNodeIndex = nodeNumber - xPixels;
 					sortedEdges.push_back(imageTreeVerticalEdges[j - 1][i]);
 				}
-				treeNodeMatrix[j][i] = *thisNode;
-				//allNodes[nodeNumber] = *thisNode;
+
 				nodeNumber++;
 			}
 		}
 
 		return sortedEdges;
+
 	}
 
-	vector<vector<double>> imageLocallyFiltered(int inputRows, int inputCols, Mat &inputImage, vector<nodeStructure> &nodeMST) {
-		vector<vector<double>> stepOneLocal = forwardsAggregation(inputRows,inputCols,inputImage,nodeMST);
-		return backwardsAggregation(inputRows, inputCols, stepOneLocal, nodeMST);
+	vector<vector<double>> imageLocallyFiltered(int inputRows, int inputCols, vector<vector<double>> &inputImage, vector<nodeStructure> &nodeMST, float sigma) {
+		vector<vector<double>> stepOneLocal = forwardsAggregation(inputRows, inputCols, inputImage, nodeMST, sigma);
+		return backwardsAggregation(inputRows, inputCols, stepOneLocal, nodeMST, sigma);
 	}
 
-	vector<vector<double>> forwardsAggregation(int inputRows, int inputCols, Mat &inputImage, vector<nodeStructure> &nodeMST) {
+	vector<vector<double>> forwardsAggregation(int inputRows, int inputCols, vector<vector<double>> &inputImage, vector<nodeStructure> &nodeMST,float sigma) {
 		
 		// create 2D array of local costs
 		vector<double> localOneDim(inputCols);
 		vector<vector<double>> localCostsLeafToRoot(inputRows, localOneDim);
 
-		aggregateStepOne(nodeMST, nodeMST[0].root, inputImage, localCostsLeafToRoot);
+		float factor = exp(-(0.5f / (sigma*sigma)));
+		aggregateStepOne(nodeMST, nodeMST[0].root, inputImage, localCostsLeafToRoot, (double)factor);
 
 		return localCostsLeafToRoot;
 	}
 
-	void aggregateStepOne(vector<nodeStructure> &nodeMST,int parentIndex, Mat &inputImage, vector<vector<double>> &localCostsLeafToRoot) {
+	void aggregateStepOne(vector<nodeStructure> &nodeMST,int parentIndex, vector<vector<double>> &inputImage, vector<vector<double>> &localCostsLeafToRoot, double factor) {
+
 		for (int i = 0; i < nodeMST[parentIndex].children.size(); i++) {
-			aggregateStepOne(nodeMST, nodeMST[parentIndex].children[i],inputImage,localCostsLeafToRoot);
-			double childSimilarity = localCostsLeafToRoot[nodeMST[nodeMST[parentIndex].children[i]].yCoord][nodeMST[nodeMST[parentIndex].children[i]].xCoord] * exp((double)(-0.5) / (double)2.3);
+			aggregateStepOne(nodeMST, nodeMST[parentIndex].children[i],inputImage,localCostsLeafToRoot,factor);
+			double childSimilarity = localCostsLeafToRoot[nodeMST[nodeMST[parentIndex].children[i]].yCoord][nodeMST[nodeMST[parentIndex].children[i]].xCoord] * (double)factor;
 			localCostsLeafToRoot[nodeMST[parentIndex].yCoord][nodeMST[parentIndex].xCoord] += childSimilarity;
 		}
 		// add own intensity 
-		Scalar pixelIntensityScalar = inputImage.at<uchar>(nodeMST[parentIndex].yCoord, nodeMST[parentIndex].xCoord);
-		double pixelintensity = *pixelIntensityScalar.val;
+		double pixelintensity = inputImage[nodeMST[parentIndex].yCoord][nodeMST[parentIndex].xCoord];
 		localCostsLeafToRoot[nodeMST[parentIndex].yCoord][nodeMST[parentIndex].xCoord] += pixelintensity;
 	}
 
-	vector<vector<double>> backwardsAggregation(int inputRows, int inputCols, vector<vector<double>> &localCostsStepOne, vector<nodeStructure> &nodeMST) {
+	vector<vector<double>> backwardsAggregation(int inputRows, int inputCols, vector<vector<double>> &localCostsStepOne, vector<nodeStructure> &nodeMST,float sigma) {
 		// create 2D array of local costs step 2
 		vector<double> localOneDim(inputCols);
 		vector<vector<double>> localCostsRootToLeaf(inputRows, localOneDim);
 
 		// factors defined in paper
-		double nodeFactor = (1 - exp(-1 / ((double)2.3*(double)2.3)));
-		double parentFactor = exp((double)(-0.5) / ((double)2.3*(double)2.3));
+		double nodeFactor = (1 - exp(-1 / (sigma*sigma)));
+		double parentFactor = exp((double)(-0.5) / (sigma*sigma));
 
 		aggregateStepTwo(nodeMST, nodeMST[0].root, localCostsStepOne, localCostsRootToLeaf,parentFactor,nodeFactor);
 
 		return localCostsRootToLeaf;
 	}
 
-	void aggregateStepTwo(vector<nodeStructure> &nodeMST, int parentIndex, vector<vector<double>> localCostsStepOne, vector<vector<double>> &localCostsLeafToRoot, double parentFactor, double nodeFactor) {
+	void aggregateStepTwo(vector<nodeStructure> &nodeMST, int parentIndex, vector<vector<double>> &localCostsStepOne, vector<vector<double>> &localCostsLeafToRoot, double parentFactor, double nodeFactor) {
 		// add value from step 1
 		localCostsLeafToRoot[nodeMST[parentIndex].yCoord][nodeMST[parentIndex].xCoord] += (nodeFactor*localCostsStepOne[nodeMST[parentIndex].yCoord][nodeMST[parentIndex].xCoord]);
+		
 		// add value from parent
 		if (parentIndex != nodeMST[parentIndex].parent) {
 			localCostsLeafToRoot[nodeMST[parentIndex].yCoord][nodeMST[parentIndex].xCoord] += localCostsLeafToRoot[nodeMST[nodeMST[parentIndex].parent].yCoord][nodeMST[nodeMST[parentIndex].parent].xCoord] *parentFactor;
@@ -321,63 +313,575 @@ public:
 		}
 	}
 
-	vector<vector<vector<double>>> abMappingCostants(Mat &inputImage, int squareDimension) {
+	// non local
+	vector<vector<double>> imageNonLocalFilter(int inputRows, int inputCols, vector<nodeStructure> &nodeMST, int squareDimension, vector<vector<double>> &inputImage) {
 		
-		vector<vector<vector<double>>> abConstants;
-		int xmax = inputImage.cols - 1;
-		int ymax = inputImage.rows - 1;
-		
-		// get a and b constants for each pixel
-		for (int j = 0; j < ymax;j++) {
-			for (int i = 0; i < xmax; i++) {
-				abConstants[j][i] = abMappingCostantAtPixel(inputImage,j,i,squareDimension);
+		vector<double> temp(inputCols,0);
+		vector<vector<double>> nonLocalFilter(inputRows,temp);
+		int xmax = inputCols - 1;
+		int ymax = inputRows - 1;
+
+		// create an entry for every pixel
+		for (int j = 0; j < ymax+1; j++) {
+			for (int i = 0; i < xmax+1; i++) {
+				nonLocalFilter[j][i] = nonLocalAtPixel(ymax, xmax,j,i,nodeMST, squareDimension,inputImage);
 			}
 		}
-
-		return abConstants;
+		return nonLocalFilter;
 	}
 
+	// non local value at each pixel
+	double nonLocalAtPixel(int ymax, int xmax, int y, int x , vector<nodeStructure> &nodeMST, int squareDimension, vector<vector<double>> &inputImage) {
 
-	vector<double> abMappingCostantAtPixel(Mat &inputImage, int y, int x, int squareDimension) {
+		vector<double> nodeWeights(9,0);
+		vector<double> nodeIntensities(9,0);
 
-		vector<double> abConstants;
-		vector<double> pixelIntensities;
-		int xmax = inputImage.cols-1;
-		int ymax = inputImage.rows-1;
-
-		double sumOfPixelValues = 0;
+		bool allZeroWeights = true;
 		int numberEitherside = (squareDimension - 1) / 2;
-		// go through surrounding area and collect pixel intensities
-		for (int j = y - numberEitherside; j < y + numberEitherside +1; j++) {
-			for (int i = x -  numberEitherside; i < x + numberEitherside + 1; i++) {
-				if (j<0||i<0||j>ymax||i>xmax) {
+		int index = 0;
+		for (int j = y - numberEitherside; j < y + numberEitherside + 1; j++) {
+			for (int i = x - numberEitherside; i < x + numberEitherside + 1; i++) {
+
+				// out of range or the centre pixel
+				if (j<0 || i<0 || j>ymax || i>xmax || (j == y && i == x)) {
+					index++;
 					continue;
 				}
 				else {
-					Scalar pixelIntensityScalar = inputImage.at<uchar>(j,i);
-					pixelIntensities[j*squareDimension + i] = *pixelIntensityScalar.val;
-					sumOfPixelValues += *pixelIntensityScalar.val;
+					int centreNodeIndex = y*(xmax+1) + x;
+					int thisNodeIndex = j*(xmax+1) + i;
+
+					// add to intensity list
+					nodeIntensities[index] = inputImage[j][i];
+					// find weight from p to q
+					float weight = findWeight(nodeMST, thisNodeIndex, centreNodeIndex);
+					if (weight!=0 && allZeroWeights) {
+						allZeroWeights = false;
+					}
+					nodeWeights[index] = (weight);
+					index++;
+				}
+			}
+		}
+		
+
+		// find min b
+		int minb = -1;
+		int bCost = -1;
+
+		if (allZeroWeights) {
+			return 0;
+		}
+		else {
+			// iteratate all b values 
+			for (int i = 0; i < nodeWeights.size(); i++) {
+				if (nodeWeights[i]==0) {
+					continue;
+				}
+				double thisbCost = nonLocalWithb(nodeIntensities[i], nodeIntensities, nodeWeights);
+
+				if (bCost<0 || thisbCost<bCost) {
+					bCost = thisbCost;
+					minb = nodeIntensities[i];
+				}
+			}
+		}
+		return minb;
+	}
+
+
+	double findWeight(vector<nodeStructure> &nodeMST, int node1, int node2) {
+
+		float weight = 0;
+
+		while (nodeMST[node1].rank != nodeMST[node2].rank) {
+			if (nodeMST[node1].rank < nodeMST[node2].rank) {
+				weight += nodeMST[node1].weightToParent;
+				node1 = nodeMST[node1].parent;
+			}
+			else {
+				weight += nodeMST[node2].weightToParent;
+				node2 = nodeMST[node2].parent;
+			}
+		}
+
+		weight += findWeightToConnectedParent(nodeMST, node1, node2, 0);
+
+		// ranks are the same
+		return weight;
+	}
+
+	double findWeightToConnectedParent(vector<nodeStructure> &nodeMST, int node1, int node2, int iteration) {
+		if (node1 == node2) {
+			return 0;
+		}
+
+		if (nodeMST[node1].rank > nodeMST[node2].rank) {
+			return nodeMST[node2].weightToParent + findWeightToConnectedParent(nodeMST, node1, nodeMST[node2].parent, iteration + 1);
+		}
+		else if (nodeMST[node1].rank < nodeMST[node2].rank) {
+			return nodeMST[node1].weightToParent + findWeightToConnectedParent(nodeMST, nodeMST[node1].parent, node2, iteration + 1);
+		}
+		else {
+			return nodeMST[node1].weightToParent + nodeMST[node2].weightToParent + findWeightToConnectedParent(nodeMST, nodeMST[node1].parent, nodeMST[node2].parent, iteration + 1);
+		}
+	}
+
+	double nonLocalWithb(int b, vector<double> &nodeIntensities, vector<double> &nodeWeights) {
+
+		double cost=0;
+
+		for (int i = 0; i < nodeIntensities.size();i++){//nodeIntensities.size();i++) {
+			cost += nodeWeights[i]*abs(b-nodeIntensities[i]);
+		}
+
+		return cost;
+	}
+
+
+	vector<vector<double>> productOfImages(Mat &inputImage1, Mat &inputImage2, int disparity, bool diparityForBoth,bool squareRoot) {
+		// Note: reference frame is image1
+
+		vector<double> product1d(inputImage1.cols,0);
+		vector<vector<double>> product(inputImage1.rows,product1d);
+		
+		for (int j = 0; j < inputImage1.rows;j++) {
+			for (int i = 0; i < inputImage1.cols;i++) {
+				// value doesn't exhist (zero)
+				if ((i-disparity)<0 || (i - disparity)>inputImage1.cols-1) {
+					continue;
+				}
+
+				Scalar pixel1Intensity;
+				
+				if (diparityForBoth) {
+					pixel1Intensity = (double)inputImage1.at<uchar>(j, i- disparity);
+				}
+				else {
+					pixel1Intensity = (double)inputImage1.at<uchar>(j, i);
+				}
+				
+				Scalar pixel2Intensity = (double)inputImage2.at<uchar>(j, i - disparity);
+
+				if (squareRoot) {
+					product[j][i] = (double)*pixel1Intensity.val;
+					//outputImage.at<uchar>(j, i) = (double)*pixel1Intensity.val;
+				}
+				else {
+					product[j][i] = (double)*pixel1Intensity.val * (double)*pixel2Intensity.val;
+					//outputImage.at<uchar>(j, i) = (double)*pixel1Intensity.val * (double)*pixel2Intensity.val;
+				}
+				
+			}
+		}
+
+		return product;
+	}
+
+
+	vector<vector<double>> matToVector2d(Mat &inputImage) {
+		vector<double> output1d(inputImage.cols, 0);
+		vector<vector<double>> output(inputImage.rows, output1d);
+
+		for (int j = 0; j < output.size(); j++) {
+			for (int i = 0; i < output[0].size(); i++) {
+				Scalar intensity = inputImage.at<uchar>(j, i);
+				output[j][i] = (double)*intensity.val;
+			}
+		}
+
+		return output;
+	}
+
+	
+	vector<vector<double>> findDisparities(Mat &imgLeft, Mat &imgRight, int a_p, int b_p, int disparityRange, int squareDimension,float sigma) {
+
+
+		// temp
+		/*cout << "LEFT IMAGE"<<endl;
+		print2DVector(matToVector2d(imgLeft));
+		cout << "Right IMAGE" << endl;
+		print2DVector(matToVector2d(imgRight));*/
+		// temp
+		
+		// local Cost matrix
+		vector<double> localCosts1D(disparityRange, -1);
+		vector<vector<double>> localCosts2D(imgLeft.cols, localCosts1D);
+		vector<vector<vector<double>>> localCosts(imgLeft.rows, localCosts2D);
+		
+		// non local Cost matrix
+		vector<double> nonLocalCosts1D(disparityRange, -1);
+		vector<vector<double>> nonLocalCosts2D(imgLeft.cols, nonLocalCosts1D);
+		vector<vector<vector<double>>> nonLocalCosts(imgLeft.rows, nonLocalCosts2D);
+
+		// left squared image doesn't change with d
+		vector<vector<double>> leftSquared = productOfImages(imgLeft,imgLeft,0,false,false);
+		vector<nodeStructure> nodeMSTLeftSquared = vector2DToMST(leftSquared);
+		vector<vector<double>> localFilterLeftSquared = imageLocallyFiltered(leftSquared.size(), leftSquared[0].size(),leftSquared,nodeMSTLeftSquared,sigma);
+		vector<vector<double>> nonLocalFilterLeftSquared = imageNonLocalFilter(leftSquared.size(), leftSquared[0].size(), nodeMSTLeftSquared, squareDimension, leftSquared);
+		
+	/*	// temp
+		cout << "LEFT SQUARED" << endl;
+		print2DVector(leftSquared);
+		// temp
+
+		// temp
+		cout << "LEFT SQUARED LOCAL" << endl;
+		print2DVector(localFilterLeftSquared);
+		// temp
+
+		// temp
+		cout << "LEFT SQUARED NON LOCAL" << endl;
+		print2DVector(nonLocalFilterLeftSquared);
+		// temp*/
+		cout << "Left Squared Finished" << endl;
+
+
+		// left currently b=0 so not needed
+		vector<double> localFilterLeft1d(imgLeft.cols, 0);
+		vector<vector<double>> localFilterLeft(imgLeft.rows, localFilterLeft1d);
+		vector<double> nonLocalFilterLeft1d(imgLeft.cols, 0);
+		vector<vector<double>> nonLocalFilterLeft(imgLeft.rows, nonLocalFilterLeft1d);
+		if (b_p != 0) {
+			vector<vector<double>> leftImage = matToVector2d(imgLeft);
+			vector<nodeStructure> nodeMSTLeft = vector2DToMST(leftImage);
+			localFilterLeft = imageLocallyFiltered(leftImage.size(), leftImage[0].size(), leftImage, nodeMSTLeft, sigma);
+			nonLocalFilterLeft = imageNonLocalFilter(leftImage.size(), leftImage[0].size(), nodeMSTLeft, squareDimension, leftImage);
+		}
+		cout << "Left Finished" << endl;
+		
+
+		// iterate all possible disparities
+		int q = 0;
+		for (int d = ((disparityRange - 1) / 2); d> -((disparityRange - 1) / 2) - 1; d--) {
+			cout << "q = "<<q<< " and d = "<< d<<endl;
+			clock_t t;
+			t = clock();
+
+			// rightDelta squared
+			vector<vector<double>> rightDeltaSquared = productOfImages(imgRight, imgRight,d,true,false);
+			vector<nodeStructure> nodeMSTRightDeltaSquared = vector2DToMST(rightDeltaSquared);
+			vector<vector<double>> localFilterRightDeltaSquared = imageLocallyFiltered(rightDeltaSquared.size(), rightDeltaSquared[0].size(), rightDeltaSquared, nodeMSTRightDeltaSquared, sigma);
+			vector<vector<double>> nonLocalFilterRightDeltaSquared = imageNonLocalFilter(rightDeltaSquared.size(), rightDeltaSquared[0].size(), nodeMSTRightDeltaSquared, squareDimension, rightDeltaSquared);
+			
+			/*// temp
+			cout << "RIGHT DELTA SQUARED" << endl;
+			print2DVector(rightDeltaSquared);
+			// temp
+
+			// temp
+			cout << "RIGHT DELTA SQUARED LOCAL" << endl;
+			print2DVector(localFilterRightDeltaSquared);
+			// temp
+
+			// temp
+			cout << "RIGHT DELTA SQUARED NON LOCAL" << endl;
+			print2DVector(nonLocalFilterRightDeltaSquared);
+			// temp*/
+			
+			cout << "Right Delta Squared Finished" << endl;
+
+
+			// leftRightDelta
+			vector<vector<double>> leftRightDelta = productOfImages(imgLeft, imgRight,d,false,false);
+			vector<nodeStructure> nodeMSTLeftRightDelta = vector2DToMST(leftRightDelta);
+			vector<vector<double>> localFilterLeftRightDelta = imageLocallyFiltered(leftRightDelta.size(), leftRightDelta[0].size(), leftRightDelta, nodeMSTLeftRightDelta, sigma);
+			vector<vector<double>> nonLocalFilterLeftRightDelta = imageNonLocalFilter(leftRightDelta.size(), leftRightDelta[0].size(), nodeMSTLeftRightDelta, squareDimension, leftRightDelta);
+
+			/*// temp
+			cout << "LEFT RIGHT DELTA" << endl;
+			print2DVector(leftRightDelta);
+			// temp
+
+			// temp
+			cout << "LEFT RIGHT DELTA LOCAL" << endl;
+			print2DVector(localFilterLeftRightDelta);
+			// temp
+
+			// temp
+			cout << "LEFT RIGHT DELTA NON LOCAL" << endl;
+			print2DVector(nonLocalFilterLeftRightDelta);
+			// temp*/
+
+			cout << "Left Right Delta Finished" << endl;
+
+			// rightDelta 
+			vector<vector<double>> rightDelta = productOfImages(imgRight, imgRight, d, true, true);
+			vector<double> localFilterRightDelta1d(rightDelta[0].size(), 0);
+			vector<vector<double>> localFilterRightDelta(rightDelta.size(), localFilterRightDelta1d);
+			vector<double> nonLocalFilterRightDelta1d(rightDelta[0].size(), 0);
+			vector<vector<double>> nonLocalFilterRightDelta(rightDelta.size(), nonLocalFilterRightDelta1d);
+			// currently b=0 so not needed
+			if (b_p != 0) {
+				vector<nodeStructure> nodeMSTRightDelta = vector2DToMST(rightDelta);
+				localFilterRightDelta = imageLocallyFiltered(rightDelta.size(), rightDelta[0].size(), rightDelta, nodeMSTRightDelta, sigma);
+				nonLocalFilterRightDelta = imageNonLocalFilter(rightDelta.size(), rightDelta[0].size(), nodeMSTRightDelta, squareDimension, rightDelta);
+			}
+			cout << "Right Delta Finished" << endl;
+			
+			// local costs
+			costFunction(localFilterLeftSquared, localFilterLeft, localFilterRightDeltaSquared, localFilterLeftRightDelta, localFilterRightDelta,localCosts,a_p,b_p,q,d);
+			// non local costs
+			costFunction(nonLocalFilterLeftSquared, nonLocalFilterLeft, nonLocalFilterRightDeltaSquared, nonLocalFilterLeftRightDelta, nonLocalFilterRightDelta, nonLocalCosts, a_p, b_p, q,d);
+			q++;
+
+			t = clock() - t;
+			cout << "Time: " << ((float)t) / CLOCKS_PER_SEC << endl;
+			cout << "Disparity "<< q << " out of " << disparityRange << endl;	
+			cout << endl;
+		}
+		// add two costs together
+		vector<vector<vector<double>>> totalCosts = addCostMatrices(localCosts, nonLocalCosts, true);
+
+		//temp
+		//printAllCostMatrices(totalCosts);
+		//temp 
+
+		// takes absolute with the true value;
+	return disparityMatrix(totalCosts,disparityRange,false);
+
+	}
+
+	vector<nodeStructure> vector2DToMST(vector<vector<double>> inputImage) {
+		vector<TreeEdge> sortedEdges(shortestSidesOfImageFromVector2d(inputImage));
+
+		sort(sortedEdges.begin(), sortedEdges.end());
+		return makeMST(inputImage.size(), inputImage[0].size(), sortedEdges);
+	}
+
+
+	void costFunction(vector<vector<double>> &filterLeftSquared, vector<vector<double>> &filterLeft, vector<vector<double>> &filterRightDeltaSquared, vector<vector<double>> &filterLeftRightDelta, vector<vector<double>> &filterRightDelta, vector<vector<vector<double>>> &costMatrix,int a_p,int b_p, int q,int d) {
+
+		for (int j = 0; j < filterLeftSquared.size();j++) {
+			for (int i = 0; i < filterLeftSquared[0].size(); i++) {
+				costMatrix[j][i][q] = filterLeftSquared[j][i] + (a_p * filterRightDeltaSquared[j][i]) + (b_p * b_p) - (2 * b_p * filterLeft[j][i]) - (2 * a_p * filterLeftRightDelta[j][i]) + (2 * a_p * b_p * filterRightDelta[j][i]);
+				// temp
+				/*if (i == 2 && j == 1) {
+					cout << costMatrix[j][i][q] << endl;
+					cout << filterLeftSquared[j][i] << endl;
+					cout << (a_p * filterRightDeltaSquared[j][i]) << endl;
+					cout << (2 * a_p * filterLeftRightDelta[j][i]) << endl;
+				}*/
+				// temp
+			}
+		}
+	}
+
+
+	vector<vector<vector<double>>> addCostMatrices(vector<vector<vector<double>>> &cost1, vector<vector<vector<double>>> &cost2, bool takeAbsolute) {
+
+		vector<double> result1D(cost1[0][0].size(), -1);
+		vector<vector<double>> result2D(cost1[0].size(), result1D);
+		vector<vector<vector<double>>> result3D(cost1.size(), result2D);
+
+		for (int j = 0; j < cost1.size(); j++) {
+			for (int i = 0; i < cost1[0].size(); i++) {
+				for (int q = 0; q < cost1[0][0].size(); q++) {
+					if (takeAbsolute) {
+						result3D[j][i][q] = abs(cost1[j][i][q] + cost2[j][i][q]);
+					}
+					else {
+						result3D[j][i][q] = cost1[j][i][q] + cost2[j][i][q];
+					}
 				}
 			}
 		}
 
-		double mean = sumOfPixelValues/ pixelIntensities.size();
+		return result3D;
+	}
 
-		double residual = 0;
-		for (int i = 0; i < pixelIntensities.size(); i++)
-		{
-			residual += (pixelIntensities[i] - mean) * (pixelIntensities[i] - mean);
+
+	vector<vector<double>> disparityMatrix(vector<vector<vector<double>>> &costsMatrix, int disparityRange,bool absoluteOfDisparity) {
+		//cout<< "Entered Here "<< endl;
+		vector<double> disparity1D(costsMatrix[0].size(), -1);
+		vector<vector<double>> disparity2D(costsMatrix.size(), disparity1D);
+
+		for (int j = 0; j < costsMatrix.size(); j++) {
+			for (int i = 0; i < costsMatrix[0].size();i++) {
+				float minCost = -1;
+				int minD = -1;
+				int d = ((disparityRange - 1) / 2);
+				for (int q = 0; q < costsMatrix[0][0].size(); q++) {
+					double thisCost = costsMatrix[j][i][q];
+					if (minCost == -1) {
+						minCost = thisCost;
+						minD = d;
+					}
+					else if (thisCost<minCost) {
+						// temp
+						if (j == 63 && i == 105) {
+							cout << "Lower minCost: " << thisCost<<" < "<<minCost<< " at d="<<d << endl;
+						}
+						minCost = thisCost;
+						minD = d;
+					}
+					else if (thisCost==minCost) {
+						if (abs(d)<abs(minD)) {
+							// temp
+							if (j == 63 && i == 105) {
+								cout << "Same Cost: " << thisCost << " and " << d << " < " << minD << endl;
+							}
+							minD = d;
+						}
+					}
+					d--;
+				}
+
+				if (absoluteOfDisparity) {
+					disparity2D[j][i] = abs(minD);
+				}
+				else {
+					disparity2D[j][i] = minD;
+				}
+				
+
+				// temp
+				if (j == 63) {
+					if (i<106 && i>73) {
+						cout << minD << endl;
+					}					
+				}
+			}
 		}
-		double variance = residual / pixelIntensities.size();
+
+		return disparity2D;
+	}
+
+	Mat disparityImage(vector<vector<double>> &disparityMatrix, int minD) {
+		Mat outputImage(disparityMatrix.size(), disparityMatrix[0].size(), CV_8UC1);
+
+		double min=9999;
+		double max=-9999;
+
+		for (int j = 0; j < disparityMatrix.size(); j++) {
+			for (int i = 0; i < disparityMatrix[0].size(); i++) {
+				if (disparityMatrix[j][i] + minD>max) {
+					max = disparityMatrix[j][i] + minD;
+				}
+				else if (disparityMatrix[j][i] + minD<min) {
+					min = disparityMatrix[j][i] + minD;
+				}
+			}
+		}
+
+		cout<< "Min: "<< min<< endl;
+		cout << "Max: " << max << endl;
+
+		scaleDisparityMatrix(disparityMatrix, min,max);
+
+		for (int j = 0; j < disparityMatrix.size(); j++) {
+			for (int i = 0; i < disparityMatrix[0].size(); i++) {
+				outputImage.at<uchar>(j, i) = disparityMatrix[j][i] + minD;
+			}
+		}		
+
+		return outputImage;
+	}
+
+	void scaleDisparityMatrix(vector<vector<double>> &disparityMatrix, int min, int max) {
+
+		if (max-min==0) {
+			return;
+		}
+
+		for (int j = 0; j < disparityMatrix.size(); j++) {
+			for (int i = 0; i < disparityMatrix[0].size(); i++) {
+
+				/*if (disparityMatrix[j][i] == min) {
+					cout<< "Min from "<<min<<" to "<< (disparityMatrix[j][i] - min)*(255 / (max - min)) << endl;
+				}
+				else if (disparityMatrix[j][i] == max) {
+					cout << "Max from " << max << " to " << (disparityMatrix[j][i] - min)*(255 / (max - min)) << endl;
+				}*/
+
+				disparityMatrix[j][i] = (disparityMatrix[j][i] - min)*(255 / (max - min));
+			}
+		}
+	}
 
 
 
 
-		//????????????????????????????????????????
-		double a = 1;
-		double b = 1;
 
-		return abConstants;
+
+	// temp /////////////////////////////////////////////
+
+	vector<vector<int>> calculateDepth(vector<vector<double>> &disparityMatrix, double baselineDistance, double focalLength) {
+		vector<int> depth1D(disparityMatrix[0].size(), -1);
+		vector<vector<int>> depthMatrix(disparityMatrix.size(), depth1D);
+
+		for (int j = 0; j < depthMatrix.size();j++) {
+			for (int i = 0; i < depthMatrix[0].size();i++) {
+				depthMatrix[j][i] = (int)(focalLength *(baselineDistance/abs(disparityMatrix[j][i])));
+				//cout<< depthMatrix[j][i]<< endl;
+			}
+		}
+
+		return depthMatrix;
+	}
+
+	Mat depthImage(vector<vector<int>> &depthMatrix) {
+		Mat depth(depthMatrix.size(), depthMatrix[0].size(), CV_8UC1);
+
+		for (int j = 0; j < depthMatrix.size(); j++) {
+			for (int i = 0; i < depthMatrix[0].size(); i++) {
+				depth.at<uchar>(j, i) = depthMatrix[j][i];
+			}
+		}
+
+		return depth;
+	}
+
+
+
+
+	
+	Mat differenceBetweenTwoImages(Mat &img1, Mat &img2) {
+		Mat output(img1.rows,img1.cols, CV_8UC1);
+
+		for (int j = 0; j < output.rows; j++) {
+			for (int i = 0; i < output.cols; i++) {
+				Scalar intensity1 = img1.at<uchar>(j, i);
+				Scalar intensity2 = img2.at<uchar>(j, i);
+				output.at<uchar>(j, i) = abs((double)*intensity1.val- (double)*intensity2.val);
+			}
+		}
+
+		return output;
+	}
+
+
+
+	void print2DVector(vector<vector<double>> input) {
+		cout << endl;
+		for (int j = 0; j < input.size(); j++) {
+			for (int i = 0; i < input[0].size(); i++) {
+				cout << input[j][i];
+				if (i!= input[0].size()-1) {
+					cout<< ", ";
+				}
+			}
+			cout << endl;
+		}
+		cout << endl << endl;
+	}
+
+	void printAllCostMatrices(vector<vector<vector<double>>> &costs) {
+
+
+		vector<double> costsTemp(costs[0].size(),-1);
+		vector<vector<double>> costs2d(costs.size(),costsTemp);
+
+		for (int q = 0; q < costs[0][0].size(); q++) {
+			for (int j = 0; j < costs.size(); j++) {
+				for (int i = 0; i < costs[0].size(); i++) {
+					costs2d[j][i] = costs[j][i][q];
+				}
+			}
+
+			print2DVector(costs2d);
+		}
+
 	}
 
 };
