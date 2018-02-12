@@ -496,14 +496,6 @@ public:
 	
 	vector<vector<double>> findDisparities(Mat &imgLeft, Mat &imgRight, int a_p, int b_p, int disparityRange, int squareDimension,float sigma) {
 
-
-		// temp
-		/*cout << "LEFT IMAGE"<<endl;
-		print2DVector(matToVector2d(imgLeft));
-		cout << "Right IMAGE" << endl;
-		print2DVector(matToVector2d(imgRight));*/
-		// temp
-		
 		// local Cost matrix
 		vector<double> localCosts1D(disparityRange, -1);
 		vector<vector<double>> localCosts2D(imgLeft.cols, localCosts1D);
@@ -519,21 +511,6 @@ public:
 		vector<nodeStructure> nodeMSTLeftSquared = vector2DToMST(leftSquared);
 		vector<vector<double>> localFilterLeftSquared = imageLocallyFiltered(leftSquared.size(), leftSquared[0].size(),leftSquared,nodeMSTLeftSquared,sigma);
 		vector<vector<double>> nonLocalFilterLeftSquared = imageNonLocalFilter(leftSquared.size(), leftSquared[0].size(), nodeMSTLeftSquared, squareDimension, leftSquared);
-		
-	/*	// temp
-		cout << "LEFT SQUARED" << endl;
-		print2DVector(leftSquared);
-		// temp
-
-		// temp
-		cout << "LEFT SQUARED LOCAL" << endl;
-		print2DVector(localFilterLeftSquared);
-		// temp
-
-		// temp
-		cout << "LEFT SQUARED NON LOCAL" << endl;
-		print2DVector(nonLocalFilterLeftSquared);
-		// temp*/
 		cout << "Left Squared Finished" << endl;
 
 
@@ -552,9 +529,9 @@ public:
 		
 
 		// iterate all possible disparities
-		int q = 0;
-		for (int d = ((disparityRange - 1) / 2); d> -((disparityRange - 1) / 2) - 1; d--) {
-			cout << "q = "<<q<< " and d = "<< d<<endl;
+		for (int d = 0; d < disparityRange;d++) {
+			//cout << "q = "<<q<< " and d = "<< d<<endl;
+			cout << "d = " << d << endl;
 			clock_t t;
 			t = clock();
 
@@ -563,22 +540,6 @@ public:
 			vector<nodeStructure> nodeMSTRightDeltaSquared = vector2DToMST(rightDeltaSquared);
 			vector<vector<double>> localFilterRightDeltaSquared = imageLocallyFiltered(rightDeltaSquared.size(), rightDeltaSquared[0].size(), rightDeltaSquared, nodeMSTRightDeltaSquared, sigma);
 			vector<vector<double>> nonLocalFilterRightDeltaSquared = imageNonLocalFilter(rightDeltaSquared.size(), rightDeltaSquared[0].size(), nodeMSTRightDeltaSquared, squareDimension, rightDeltaSquared);
-			
-			/*// temp
-			cout << "RIGHT DELTA SQUARED" << endl;
-			print2DVector(rightDeltaSquared);
-			// temp
-
-			// temp
-			cout << "RIGHT DELTA SQUARED LOCAL" << endl;
-			print2DVector(localFilterRightDeltaSquared);
-			// temp
-
-			// temp
-			cout << "RIGHT DELTA SQUARED NON LOCAL" << endl;
-			print2DVector(nonLocalFilterRightDeltaSquared);
-			// temp*/
-			
 			cout << "Right Delta Squared Finished" << endl;
 
 
@@ -587,22 +548,6 @@ public:
 			vector<nodeStructure> nodeMSTLeftRightDelta = vector2DToMST(leftRightDelta);
 			vector<vector<double>> localFilterLeftRightDelta = imageLocallyFiltered(leftRightDelta.size(), leftRightDelta[0].size(), leftRightDelta, nodeMSTLeftRightDelta, sigma);
 			vector<vector<double>> nonLocalFilterLeftRightDelta = imageNonLocalFilter(leftRightDelta.size(), leftRightDelta[0].size(), nodeMSTLeftRightDelta, squareDimension, leftRightDelta);
-
-			/*// temp
-			cout << "LEFT RIGHT DELTA" << endl;
-			print2DVector(leftRightDelta);
-			// temp
-
-			// temp
-			cout << "LEFT RIGHT DELTA LOCAL" << endl;
-			print2DVector(localFilterLeftRightDelta);
-			// temp
-
-			// temp
-			cout << "LEFT RIGHT DELTA NON LOCAL" << endl;
-			print2DVector(nonLocalFilterLeftRightDelta);
-			// temp*/
-
 			cout << "Left Right Delta Finished" << endl;
 
 			// rightDelta 
@@ -620,22 +565,18 @@ public:
 			cout << "Right Delta Finished" << endl;
 			
 			// local costs
-			costFunction(localFilterLeftSquared, localFilterLeft, localFilterRightDeltaSquared, localFilterLeftRightDelta, localFilterRightDelta,localCosts,a_p,b_p,q,d);
+			costFunction(localFilterLeftSquared, localFilterLeft, localFilterRightDeltaSquared, localFilterLeftRightDelta, localFilterRightDelta,localCosts,a_p,b_p,d);
 			// non local costs
-			costFunction(nonLocalFilterLeftSquared, nonLocalFilterLeft, nonLocalFilterRightDeltaSquared, nonLocalFilterLeftRightDelta, nonLocalFilterRightDelta, nonLocalCosts, a_p, b_p, q,d);
-			q++;
+			costFunction(nonLocalFilterLeftSquared, nonLocalFilterLeft, nonLocalFilterRightDeltaSquared, nonLocalFilterLeftRightDelta, nonLocalFilterRightDelta, nonLocalCosts, a_p, b_p,d);
+			//q++;
 
 			t = clock() - t;
 			cout << "Time: " << ((float)t) / CLOCKS_PER_SEC << endl;
-			cout << "Disparity "<< q << " out of " << disparityRange << endl;	
+			cout << "Disparity "<< d << " out of " << disparityRange -1 << endl;	
 			cout << endl;
 		}
 		// add two costs together
 		vector<vector<vector<double>>> totalCosts = addCostMatrices(localCosts, nonLocalCosts, true);
-
-		//temp
-		//printAllCostMatrices(totalCosts);
-		//temp 
 
 		// takes absolute with the true value;
 	return disparityMatrix(totalCosts,disparityRange,false);
@@ -650,19 +591,11 @@ public:
 	}
 
 
-	void costFunction(vector<vector<double>> &filterLeftSquared, vector<vector<double>> &filterLeft, vector<vector<double>> &filterRightDeltaSquared, vector<vector<double>> &filterLeftRightDelta, vector<vector<double>> &filterRightDelta, vector<vector<vector<double>>> &costMatrix,int a_p,int b_p, int q,int d) {
+	void costFunction(vector<vector<double>> &filterLeftSquared, vector<vector<double>> &filterLeft, vector<vector<double>> &filterRightDeltaSquared, vector<vector<double>> &filterLeftRightDelta, vector<vector<double>> &filterRightDelta, vector<vector<vector<double>>> &costMatrix,int a_p,int b_p, int d) {
 
 		for (int j = 0; j < filterLeftSquared.size();j++) {
 			for (int i = 0; i < filterLeftSquared[0].size(); i++) {
-				costMatrix[j][i][q] = filterLeftSquared[j][i] + (a_p * filterRightDeltaSquared[j][i]) + (b_p * b_p) - (2 * b_p * filterLeft[j][i]) - (2 * a_p * filterLeftRightDelta[j][i]) + (2 * a_p * b_p * filterRightDelta[j][i]);
-				// temp
-				/*if (i == 2 && j == 1) {
-					cout << costMatrix[j][i][q] << endl;
-					cout << filterLeftSquared[j][i] << endl;
-					cout << (a_p * filterRightDeltaSquared[j][i]) << endl;
-					cout << (2 * a_p * filterLeftRightDelta[j][i]) << endl;
-				}*/
-				// temp
+				costMatrix[j][i][d] = filterLeftSquared[j][i] + (a_p * filterRightDeltaSquared[j][i]) + (b_p * b_p) - (2 * b_p * filterLeft[j][i]) - (2 * a_p * filterLeftRightDelta[j][i]) + (2 * a_p * b_p * filterRightDelta[j][i]);
 			}
 		}
 	}
@@ -698,33 +631,24 @@ public:
 
 		for (int j = 0; j < costsMatrix.size(); j++) {
 			for (int i = 0; i < costsMatrix[0].size();i++) {
-				float minCost = -1;
+				float minCost = -9999;
 				int minD = -1;
-				int d = ((disparityRange - 1) / 2);
 				for (int q = 0; q < costsMatrix[0][0].size(); q++) {
 					double thisCost = costsMatrix[j][i][q];
-					if (minCost == -1) {
+					if (minCost == -9999) {
 						minCost = thisCost;
-						minD = d;
+						minD = q;
 					}
 					else if (thisCost<minCost) {
-						// temp
-						if (j == 63 && i == 105) {
-							cout << "Lower minCost: " << thisCost<<" < "<<minCost<< " at d="<<d << endl;
-						}
 						minCost = thisCost;
-						minD = d;
+						minD = q;
 					}
 					else if (thisCost==minCost) {
-						if (abs(d)<abs(minD)) {
-							// temp
-							if (j == 63 && i == 105) {
-								cout << "Same Cost: " << thisCost << " and " << d << " < " << minD << endl;
-							}
-							minD = d;
+						if (abs(q)<abs(minD)) {
+							minD = q;
 						}
 					}
-					d--;
+					
 				}
 
 				if (absoluteOfDisparity) {
@@ -732,14 +656,6 @@ public:
 				}
 				else {
 					disparity2D[j][i] = minD;
-				}
-				
-
-				// temp
-				if (j == 63) {
-					if (i<106 && i>73) {
-						cout << minD << endl;
-					}					
 				}
 			}
 		}
@@ -767,7 +683,7 @@ public:
 		cout<< "Min: "<< min<< endl;
 		cout << "Max: " << max << endl;
 
-		scaleDisparityMatrix(disparityMatrix, min,max);
+		scaleMatrix(disparityMatrix, min,max, false);
 
 		for (int j = 0; j < disparityMatrix.size(); j++) {
 			for (int i = 0; i < disparityMatrix[0].size(); i++) {
@@ -778,23 +694,15 @@ public:
 		return outputImage;
 	}
 
-	void scaleDisparityMatrix(vector<vector<double>> &disparityMatrix, int min, int max) {
+	void scaleMatrix(vector<vector<double>> &matrix, int min, int max, bool depth) {
 
 		if (max-min==0) {
 			return;
 		}
 
-		for (int j = 0; j < disparityMatrix.size(); j++) {
-			for (int i = 0; i < disparityMatrix[0].size(); i++) {
-
-				/*if (disparityMatrix[j][i] == min) {
-					cout<< "Min from "<<min<<" to "<< (disparityMatrix[j][i] - min)*(255 / (max - min)) << endl;
-				}
-				else if (disparityMatrix[j][i] == max) {
-					cout << "Max from " << max << " to " << (disparityMatrix[j][i] - min)*(255 / (max - min)) << endl;
-				}*/
-
-				disparityMatrix[j][i] = (disparityMatrix[j][i] - min)*(255 / (max - min));
+		for (int j = 0; j < matrix.size(); j++) {
+			for (int i = 0; i < matrix[0].size(); i++) {
+				matrix[j][i] = (matrix[j][i] - (double)min)*((double)255 / ((double)max - (double)min));
 			}
 		}
 	}
@@ -806,21 +714,61 @@ public:
 
 	// temp /////////////////////////////////////////////
 
-	vector<vector<int>> calculateDepth(vector<vector<double>> &disparityMatrix, double baselineDistance, double focalLength) {
-		vector<int> depth1D(disparityMatrix[0].size(), -1);
-		vector<vector<int>> depthMatrix(disparityMatrix.size(), depth1D);
+	Mat calculateDepthMat(vector<vector<double>> disparityMatrix, double baseLineDistance, double focalLength) {
+		vector<vector<double>> depthMatrix = calculateDepth(disparityMatrix, baseLineDistance, focalLength);
+		Mat depth = depthImage(depthMatrix);
+		//reverseImage(depth);
+
+		return depth;
+	}
+
+	vector<vector<double>> calculateDepth(vector<vector<double>> &disparityMatrix, double baselineDistance, double focalLength) {
+		vector<double> depth1D(disparityMatrix[0].size(), -1);
+		vector<vector<double>> depthMatrix(disparityMatrix.size(), depth1D);
+
+		double min = 9999;
+		double max = -9999;
 
 		for (int j = 0; j < depthMatrix.size();j++) {
 			for (int i = 0; i < depthMatrix[0].size();i++) {
-				depthMatrix[j][i] = (int)(focalLength *(baselineDistance/abs(disparityMatrix[j][i])));
-				//cout<< depthMatrix[j][i]<< endl;
+				if (disparityMatrix[j][i]==0) {
+					depthMatrix[j][i] = -1;
+				}
+				else {
+					depthMatrix[j][i] = ((double)focalLength *((double)baselineDistance / abs((double)disparityMatrix[j][i])));
+				}
+
+				// find max and min
+				if (depthMatrix[j][i] > max) {
+					max = depthMatrix[j][i];
+				}
+				else if (depthMatrix[j][i] <min) {
+					min = depthMatrix[j][i];
+					if (min == -1) {
+						cout << min << " at " << j << "," << i << endl;
+					}
+				}
 			}
 		}
+
+		// set 0's to max depth
+		for (int j = 0; j < depthMatrix.size(); j++) {
+			for (int i = 0; i < depthMatrix[0].size(); i++) {
+				if (disparityMatrix[j][i] == -1) {
+					depthMatrix[j][i] = max;
+				}
+			}
+		}
+
+		cout << "Min Depth: " << min << endl;
+		cout << "Max Depth: " << max << endl;
+
+		scaleMatrix(depthMatrix, min, max,true);
 
 		return depthMatrix;
 	}
 
-	Mat depthImage(vector<vector<int>> &depthMatrix) {
+	Mat depthImage(vector<vector<double>> &depthMatrix) {
 		Mat depth(depthMatrix.size(), depthMatrix[0].size(), CV_8UC1);
 
 		for (int j = 0; j < depthMatrix.size(); j++) {
@@ -828,11 +776,17 @@ public:
 				depth.at<uchar>(j, i) = depthMatrix[j][i];
 			}
 		}
-
 		return depth;
 	}
 
-
+	void reverseImage(Mat &image) {
+		for (int j = 0; j < image.rows;j++) {
+			for (int i = 0; i < image.cols; i++) {
+				Scalar intensity = image.at<uchar>(j, i);
+				image.at<uchar>(j, i) = 255 - (double)*intensity.val;
+			}
+		}
+	}
 
 
 	

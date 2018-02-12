@@ -154,8 +154,8 @@ int main(int argc, char *argv[])
 	//imgRight = np.power(grayR, 0.75).astype('uint8')
 
 
-	resize(imgLeft, imgLeft, Size(), 0.25, 0.25, INTER_AREA);
-	resize(imgRight, imgRight, Size(), 0.25, 0.25, INTER_AREA);
+	//resize(imgLeft, imgLeft, Size(), 0.25, 0.25, INTER_AREA);
+	//resize(imgRight, imgRight, Size(), 0.25, 0.25, INTER_AREA);
 
 	// Make minspantree object to access relevent functions
 	MST mst;
@@ -169,7 +169,6 @@ int main(int argc, char *argv[])
 	int a = 1;
 	int b = 0;
 	int minD = 0;
-	//float sigma = 0.1;
 	float sigma = 0.01f;
 	//double focalLength = 399.9745178222656;
 	//double baseLineDistance = 0.2090607502;
@@ -185,12 +184,17 @@ int main(int argc, char *argv[])
 	// min = 270
 	Mat disparityImage = mst.disparityImage(disparityMatrix, 0);
 	
-	
+	//vector<vector<double>> depthMatrix = mst.calculateDepth(disparityMatrix, baseLineDistance , focalLength);
+	//Mat depthImage = mst.depthImage(depthMatrix);
+	Mat depthImage = mst.calculateDepthMat(disparityMatrix, baseLineDistance, focalLength);
+
+
 
 	t = clock() - t;
 	cout << "Total time: " << ((float)t) / CLOCKS_PER_SEC << endl;
 	
 	imwrite("Disparity.png",disparityImage);
+	imwrite("Depth.png", depthImage);
 	
 	namedWindow("Left", WINDOW_AUTOSIZE);// Create a window for display.
 	imshow("Left", imgLeft);
@@ -201,9 +205,10 @@ int main(int argc, char *argv[])
 	namedWindow("Disparity", WINDOW_AUTOSIZE);// Create a window for display.
 	imshow("Disparity", disparityImage);
 
+	namedWindow("Depth", WINDOW_AUTOSIZE);// Create a window for display.
+	imshow("Depth", depthImage);
+
 	waitKey(0);
-	//vector<vector<int>> depthMatrix = mst.calculateDepth(disparityMatrix, baseLineDistance , focalLength);
-	//Mat depthImage = mst.depthImage(depthMatrix);
 
 	//Mat difference = mst.differenceBetweenTwoImages(imgLeft,imgRight);
 	//imwrite("Difference.png", difference);
